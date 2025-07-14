@@ -11,7 +11,7 @@ logs/
 Thumbs.db
 
 # SQLite
-database.sqlite
+# database.sqlite
 
 # Env
 .env
