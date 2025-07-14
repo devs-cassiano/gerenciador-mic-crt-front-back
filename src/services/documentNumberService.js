@@ -87,7 +87,7 @@ class DocumentNumberService {
 
       return new Promise((resolve, reject) => {
         database.getInstance().serialize(() => {
-          // Buscar última sequência GLOBAL por transportadora
+          // Buscar última sequências GLOBAL por transportadora
           const selectSql = `
             SELECT ultimoNumero FROM number_sequences 
             WHERE tipo = ? AND transportadoraId = ? AND paisOrigemCodigo = ? AND paisDestinoCodigo = ? AND licencaComplementar = ?
