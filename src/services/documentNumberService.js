@@ -114,17 +114,16 @@ class DocumentNumberService {
             }
 
             const numeros = [];
-            let numeroAtual = ultimoNumero;
-            for (let i = 1; i <= quantidade; i++) {
-              numeroAtual++;
-              const numeroFormatado = String(numeroAtual).padStart(5, '0');
+            for (let i = 0; i < quantidade; i++) {
+              ultimoNumero++;
+              const numeroFormatado = String(ultimoNumero).padStart(5, '0');
               const numeroCompleto = `${paisOrigemCodigo}${licencaComp}${numeroFormatado}`;
               numeros.push({
                 numero: numeroCompleto,
                 paisOrigemCodigo,
                 paisDestinoCodigo: paisDestinoCodigo || null,
                 licencaComplementar: licencaComp,
-                numeroSequencial: numeroAtual
+                numeroSequencial: ultimoNumero
               });
             }
 
@@ -141,8 +140,8 @@ class DocumentNumberService {
               paisOrigemCodigo,
               paisDestinoCodigo || '',
               licencaComp || '',
-              numeroAtual,
-              numeroAtual
+              ultimoNumero,
+              ultimoNumero
             ], (err) => {
               if (err) {
                 reject(err);
