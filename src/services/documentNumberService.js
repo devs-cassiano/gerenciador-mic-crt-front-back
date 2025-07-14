@@ -90,9 +90,15 @@ class DocumentNumberService {
           // Buscar última sequência GLOBAL por transportadora
           const selectSql = `
             SELECT ultimoNumero FROM number_sequences 
-            WHERE tipo = ? AND transportadoraId = ?
+            WHERE tipo = ? AND transportadoraId = ? AND paisOrigemCodigo = ? AND paisDestinoCodigo = ? AND licencaComplementar = ?
           `;
-          database.getInstance().get(selectSql, [tipo, transportadoraId], (err, row) => {
+          database.getInstance().get(selectSql, [
+            tipo,
+            transportadoraId,
+            paisOrigemCodigo,
+            paisDestinoCodigo || '',
+            licencaComp || ''
+          ], (err, row) => {
             if (err) {
               reject(err);
               return;
