@@ -130,9 +130,10 @@ class DocumentNumberService {
 
             // Atualizar ou inserir a sequência GLOBAL
             const upsertSql = `
-              INSERT OR REPLACE INTO number_sequences 
-              (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
+              INSERT INTO number_sequences (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
               VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar)
+              DO UPDATE SET ultimoNumero = excluded.ultimoNumero
             `;
             database.getInstance().run(upsertSql, [
               tipo,
