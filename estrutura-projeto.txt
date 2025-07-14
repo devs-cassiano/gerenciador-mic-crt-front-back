@@ -1,0 +1,36 @@
+transportadora-backend/
+├── src/
+│   ├── controllers/
+│   │   ├── transportadoraController.js
+│   │   ├── crtController.js
+│   │   ├── micDtaController.js
+│   │   └── dashboardController.js
+│   ├── services/
+│   │   ├── transportadoraService.js
+│   │   ├── crtService.js
+│   │   ├── micDtaService.js
+│   │   ├── documentNumberService.js
+│   │   └── dashboardService.js
+│   ├── models/
+│   │   ├── transportadoraModel.js
+│   │   ├── crtModel.js
+│   │   ├── micDtaModel.js
+│   │   └── index.js
+│   ├── routes/
+│   │   ├── transportadoraRoutes.js
+│   │   ├── crtRoutes.js
+│   │   ├── micDtaRoutes.js
+│   │   ├── dashboardRoutes.js
+│   │   └── index.js
+│   ├── middleware/
+│   │   ├── errorHandler.js
+│   │   └── validation.js
+│   ├── utils/
+│   │   ├── dateUtils.js
+│   │   └── response.js
+│   ├── config/
+│   │   └── database.js
+│   └── app.js
+├── package.json
+├── server.js
+└── README.md
