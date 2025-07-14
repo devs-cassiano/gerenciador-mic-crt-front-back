@@ -184,59 +184,6 @@ class MicDtaService {
       return ApiResponse.error('Erro ao buscar MIC/DTAs por tipo', 500);
     }
   }
-
-  static async getNextNumber({ transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar }) {
-    try {
-      // Verificar se a transportadora existe
-      const transportadora = await TransportadoraModel.findById(transportadoraId);
-      if (!transportadora) {
-        return ApiResponse.error('Transportadora não encontrada', 404);
-      }
-
-      // Usar o país da transportadora como origem se não informado
-      const paisOrigem = paisOrigemCodigo || transportadora.pais;
-
-      // Se licença não foi informada, buscar pela transportadora e destino
-      let licenca = licencaComplementar;
-      if (!licenca) {
-        licenca = await DestinationLicenseModel.findLicenseByDestination(
-          transportadoraId, 
-          paisDestinoCodigo
-        );
-        
-        if (!licenca) {
-          return ApiResponse.error(
-            `Transportadora não possui licença configurada para destino ${paisDestinoCodigo}`, 
-            400
-          );
-        }
-      }
-
-      // Gerar apenas um número para preview
-      const numerosData = await DocumentNumberService.getNextNumbers(
-        'MIC-DTA', 
-        transportadoraId, 
-        paisOrigem, 
-        paisDestinoCodigo,
-        licenca,
-        1
-      );
-
-      if (numerosData.length === 0) {
-        return ApiResponse.error('Erro ao gerar número sequencial', 500);
-      }
-
-      return ApiResponse.success({
-        numeroCompleto: numerosData[0].numero,
-        numeroSequencial: numerosData[0].numeroSequencial,
-        paisOrigemCodigo: numerosData[0].paisOrigemCodigo,
-        paisDestinoCodigo: paisDestinoCodigo,
-        licencaComplementar: numerosData[0].licencaComplementar
-      });
-    } catch (error) {
-      return ApiResponse.error('Erro ao obter próximo número: ' + error.message, 500);
-    }
-  }
 }
 
 module.exports = MicDtaService;

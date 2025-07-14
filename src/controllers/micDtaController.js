@@ -77,24 +77,10 @@ class MicDtaController {
   }
 
   static async getNextNumber(req, res) {
-    const { transportadoraId } = req.params;
-    const { paisOrigemCodigo, paisDestinoCodigo, licencaComplementar } = req.query;
-    
-    if (!paisDestinoCodigo) {
-      return res.status(400).json({
-        success: false,
-        message: 'paisDestinoCodigo é obrigatório'
-      });
-    }
-
-    const result = await MicDtaService.getNextNumber({
-      transportadoraId,
-      paisOrigemCodigo,
-      paisDestinoCodigo,
-      licencaComplementar
+    return res.status(404).json({
+      success: false,
+      message: 'Preview de número desabilitado.'
     });
-    
-    res.status(result.success ? 200 : result.statusCode || 500).json(result);
   }
 }
 
