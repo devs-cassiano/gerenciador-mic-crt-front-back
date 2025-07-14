@@ -28,6 +28,8 @@ servers:
     description: Servidor de desenvolvimento
   - url: https://api.transportadoras.com/api
     description: Servidor de produção
+  - url: http://54.242.200.179:3000/api
+    description: Servidor de teste (IP público)
 
 tags:
   - name: Transportadoras
