@@ -126,9 +126,16 @@ class DocumentNumberService {
             const upsertSql = `
               INSERT OR REPLACE INTO number_sequences 
               (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
-              VALUES (?, ?, '', '', '', ?)
+              VALUES (?, ?, ?, ?, ?, ?)
             `;
-            database.getInstance().run(upsertSql, [tipo, transportadoraId, ultimoNumero], (err) => {
+            database.getInstance().run(upsertSql, [
+              tipo,
+              transportadoraId,
+              paisOrigemCodigo,
+              paisDestinoCodigo || '',
+              licencaComp || '',
+              ultimoNumero
+            ], (err) => {
               if (err) {
                 reject(err);
               } else {
