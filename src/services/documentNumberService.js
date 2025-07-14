@@ -108,7 +108,6 @@ class DocumentNumberService {
             if (row) {
               ultimoNumero = row.ultimoNumero;
             } else {
-              // Primeira vez, usar número inicial da transportadora
               ultimoNumero = tipo === 'CRT' ? 
                 (transportadora.numeroInicialCRT - 1) : 
                 (transportadora.numeroInicialMicDta - 1);
@@ -128,12 +127,12 @@ class DocumentNumberService {
               });
             }
 
-            // Atualizar ou inserir a sequência GLOBAL
+            // Atualizar ou inserir a sequência
             const upsertSql = `
               INSERT INTO number_sequences (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
               VALUES (?, ?, ?, ?, ?, ?)
               ON CONFLICT(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar)
-              DO UPDATE SET ultimoNumero = excluded.ultimoNumero
+              DO UPDATE SET ultimoNumero = ?
             `;
             database.getInstance().run(upsertSql, [
               tipo,
@@ -141,6 +140,7 @@ class DocumentNumberService {
               paisOrigemCodigo,
               paisDestinoCodigo || '',
               licencaComp || '',
+              ultimoNumero,
               ultimoNumero
             ], (err) => {
               if (err) {
