@@ -1,10 +1,11 @@
 const app = require('./src/app');
 
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
 
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  console.log(`📚 Documentação disponível em: http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Servidor rodando na porta ${PORT} em ${HOST}`);
+  console.log(`📚 Documentação disponível em: http://${HOST === '0.0.0.0' ? 'seu-ip-ou-dns' : HOST}:${PORT}`);
 });
 
 // Graceful shutdown
