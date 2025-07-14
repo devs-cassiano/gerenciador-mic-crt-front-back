@@ -114,20 +114,21 @@ class DocumentNumberService {
             }
 
             const numeros = [];
+            let numeroAtual = ultimoNumero;
             for (let i = 1; i <= quantidade; i++) {
-              ultimoNumero++;
-              const numeroFormatado = String(ultimoNumero).padStart(5, '0');
+              numeroAtual++;
+              const numeroFormatado = String(numeroAtual).padStart(5, '0');
               const numeroCompleto = `${paisOrigemCodigo}${licencaComp}${numeroFormatado}`;
               numeros.push({
                 numero: numeroCompleto,
                 paisOrigemCodigo,
                 paisDestinoCodigo: paisDestinoCodigo || null,
                 licencaComplementar: licencaComp,
-                numeroSequencial: ultimoNumero
+                numeroSequencial: numeroAtual
               });
             }
 
-            // Atualizar ou inserir a sequência
+            // Atualizar ou inserir a sequência com o último número gerado
             const upsertSql = `
               INSERT INTO number_sequences (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
               VALUES (?, ?, ?, ?, ?, ?)
@@ -140,8 +141,8 @@ class DocumentNumberService {
               paisOrigemCodigo,
               paisDestinoCodigo || '',
               licencaComp || '',
-              ultimoNumero,
-              ultimoNumero
+              numeroAtual,
+              numeroAtual
             ], (err) => {
               if (err) {
                 reject(err);
