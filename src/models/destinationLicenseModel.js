@@ -23,16 +23,7 @@ class DestinationLicenseModel {
         if (err) {
           reject(err);
         } else {
-          const TransportadoraModel = require('./transportadoraModel');
-          TransportadoraModel.findById(transportadoraId).then(transportadora => {
-            if (transportadora && transportadora.pais !== paisDestino) {
-              database.getInstance().run(sql, [transportadoraId, transportadora.pais, licenca, idoneidade, vencBR], function(err2) {
-                resolve({ id: this.lastID, ...destinationLicense, vencimentoLicenca: vencBR });
-              });
-            } else {
-              resolve({ id: this.lastID, ...destinationLicense, vencimentoLicenca: vencBR });
-            }
-          });
+          resolve({ id: this.lastID, ...destinationLicense, vencimentoLicenca: vencBR });
         }
       });
     });

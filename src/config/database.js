@@ -99,13 +99,10 @@ class Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tipo TEXT NOT NULL,
         transportadoraId INTEGER NOT NULL,
-        paisOrigemCodigo TEXT NOT NULL,
-        paisDestinoCodigo TEXT NOT NULL,
-        licencaComplementar TEXT NOT NULL,
         ultimoNumero INTEGER DEFAULT 0,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar),
+        UNIQUE(tipo, transportadoraId),
         FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id)
       )
     `;

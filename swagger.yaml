@@ -24,12 +24,12 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  # - url: http://localhost:3000/api
-  #   description: Servidor de desenvolvimento
-  - url: http://54.242.200.179:3000/api
-    description: Servidor de produção
-  - url: http://54.242.200.179:3000/api
-    description: Servidor de teste (IP público)
+  - url: http://localhost:3000/api
+    description: Servidor de desenvolvimento
+  # - url: http://54.242.200.179:3000/api
+  #   description: Servidor de produção
+  # - url: http://54.242.200.179:3000/api
+  #   description: Servidor de teste (IP público)
 
 tags:
   - name: Transportadoras
@@ -42,6 +42,95 @@ tags:
     description: Configurações do sistema
 
 paths:
+# DASHBOARD - Licenças e validade
+  /dashboard/licencas-status:
+    get:
+      tags:
+        - Transportadoras
+      summary: Listar todas as licenças das empresas e validade
+      description: |
+        Retorna todas as licenças das transportadoras, classificando por status de validade:
+        - **valid**: Licenças válidas (mais de 30 dias para vencer)
+        - **expiringSoon**: Próximas a vencer (até 30 dias)
+        - **expired**: Vencidas
+        
+        Útil para exibição no dashboard.
+      responses:
+        '200':
+          description: Lista de licenças com status de validade
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      all:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LicencaComStatus'
+                      valid:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LicencaComStatus'
+                      expiringSoon:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LicencaComStatus'
+                      expired:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/LicencaComStatus'
+              example:
+                success: true
+                message: Licenças listadas com status de validade
+                data:
+                  all:
+                    - id: 1
+                      transportadora:
+                        id: 1
+                        nome: "Transportes Brasil Ltda"
+                        pais: "BR"
+                      paisDestino: "PY"
+                      licenca: "6023"
+                      idoneidade: "ID123"
+                      vencimentoLicenca: "15/08/2025"
+                      status: "valid"
+                      diasParaVencer: 376
+                  valid: []
+                  expiringSoon:
+                    - id: 2
+                      transportadora:
+                        id: 2
+                        nome: "TransPY"
+                        pais: "PY"
+                      paisDestino: "BR"
+                      licenca: "5500"
+                      idoneidade: "ID789012"
+                      vencimentoLicenca: "20/08/2025"
+                      status: "expiringSoon"
+                      diasParaVencer: 16
+                  expired:
+                    - id: 3
+                      transportadora:
+                        id: 1
+                        nome: "Transportes Brasil Ltda"
+                        pais: "BR"
+                      paisDestino: "AR"
+                      licenca: "6989"
+                      idoneidade: "ID456"
+                      vencimentoLicenca: "01/07/2025"
+                      status: "expired"
+                      diasParaVencer: -34
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+
   # TRANSPORTADORAS
   /transportadoras:
     get:
@@ -618,6 +707,35 @@ paths:
                     name: "Argentina"
 
 components:
+  schemas:
+    LicencaComStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        transportadora:
+          type: object
+          properties:
+            id:
+              type: integer
+            nome:
+              type: string
+            pais:
+              type: string
+        paisDestino:
+          type: string
+        licenca:
+          type: string
+        idoneidade:
+          type: string
+        vencimentoLicenca:
+          type: string
+          description: Data no formato DD/MM/YYYY
+        status:
+          type: string
+          enum: [valid, expiringSoon, expired]
+        diasParaVencer:
+          type: integer
   parameters:
     TransportadoraId:
       name: transportadoraId
@@ -627,66 +745,6 @@ components:
         type: integer
       description: ID da transportadora
 
-  schemas:
-    # TRANSPORTADORA
-    NovaTransportadora:
-      type: object
-      required:
-        - nome
-        - pais
-        - numeroRegistro
-        - paisesDestino
-      properties:
-        nome:
-          type: string
-          description: Nome da transportadora
-          example: "Transportes Brasil Ltda"
-        pais:
-          type: string
-          description: Código do país da transportadora
-          enum: [BR, PY, AR]
-          example: "BR"
-        numeroRegistro:
-          type: string
-          description: Número de registro único da transportadora
-          example: "12345678"
-        numeroInicialCRT:
-          type: integer
-          description: Número inicial para sequência de CRTs
-          default: 1
-          example: 11192
-        numeroInicialMicDta:
-          type: integer
-          description: Número inicial para sequência de MIC/DTAs
-          default: 1
-          example: 1
-        paisesDestino:
-          type: array
-          description: Licenças por país de destino
-          items:
-            type: object
-            required:
-              - paisDestino
-              - licenca
-            properties:
-              paisDestino:
-                type: string
-                description: Código do país de destino
-                enum: [BR, PY, AR]
-                example: "PY"
-              licenca:
-                type: string
-                description: Licença complementar para este destino
-                example: "6023"
-              idoneidade:
-                type: string
-                description: Número de idoneidade (obrigatório para transportadoras estrangeiras)
-                example: "ID123456"
-              vencimentoLicenca:
-                type: string
-                format: date
-                description: Data de vencimento da licença para este destino
-                example: "2025-12-31"
 
     TransportadoraCompleta:
       allOf:

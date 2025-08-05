@@ -41,39 +41,40 @@ class CrtService {
         return ApiResponse.error('Código de país de destino inválido', 400);
       }
 
-      // Buscar a licença da transportadora para o destino específico
-      const destinationLicenses = await DestinationLicenseModel.findByTransportadora(transportadoraId);
-      const licenseForDestination = destinationLicenses.find(dl => dl.paisDestino === paisDestinoCodigo);
-
-      if (!licenseForDestination) {
-        return ApiResponse.error(
-          `Transportadora não possui licença configurada para destino ${paisDestinoCodigo}`, 
-          400
-        );
-      }
-
-      let licencaComplementar;
-
-      // Para transportadoras brasileiras, extrair os 4 primeiros dígitos após as letras iniciais
-      if (transportadora.pais === 'BR') {
-        const licenca = licenseForDestination.licenca;
-        
-        // Extrair os 4 primeiros dígitos após letras iniciais (ex: BR6023/1800648 → 6023)
-        const match = licenca.match(/^[A-Z]*(\d{4})/);
-        if (!match) {
-          throw new Error(`Licença brasileira deve conter pelo menos 4 dígitos após as letras iniciais (ex: BR1234/56). Formato atual: ${licenca}`);
-        }
-        
-        // Usar os 4 primeiros dígitos como idoneidade
-        licencaComplementar = match[1];
-        console.log(`   🇧🇷 CRT - Licença brasileira: ${licenca} → Idoneidade: ${licencaComplementar}`);
+      let licencaComplementar = null;
+      // Se o país de destino for igual ao país de origem da transportadora, ignora validação de licença
+      if (paisDestinoCodigo === transportadora.pais) {
+        licencaComplementar = null;
+        console.log('CRT - País de destino igual ao país de origem da transportadora. Ignorando validação de licença.');
       } else {
-        // Para transportadoras estrangeiras, usar a idoneidade
-        if (!licenseForDestination.idoneidade) {
-          throw new Error('Transportadora estrangeira deve ter idoneidade configurada para emitir CRT');
+        // Buscar a licença da transportadora para o destino específico
+        const destinationLicenses = await DestinationLicenseModel.findByTransportadora(transportadoraId);
+        const licenseForDestination = destinationLicenses.find(dl => dl.paisDestino === paisDestinoCodigo);
+        if (!licenseForDestination) {
+          return ApiResponse.error(
+            `Transportadora não possui licença configurada para destino ${paisDestinoCodigo}`, 
+            400
+          );
         }
-        licencaComplementar = licenseForDestination.idoneidade;
-        console.log(`   🌍 CRT - Transportadora estrangeira → Idoneidade: ${licencaComplementar}`);
+        // Para transportadoras brasileiras, extrair os 4 primeiros dígitos após as letras iniciais
+        if (transportadora.pais === 'BR') {
+          const licenca = licenseForDestination.licenca;
+          // Extrair os 4 primeiros dígitos após letras iniciais (ex: BR6023/1800648 → 6023)
+          const match = licenca.match(/^[A-Z]*(\d{4})/);
+          if (!match) {
+            throw new Error(`Licença brasileira deve conter pelo menos 4 dígitos após as letras iniciais (ex: BR1234/56). Formato atual: ${licenca}`);
+          }
+          // Usar os 4 primeiros dígitos como idoneidade
+          licencaComplementar = match[1];
+          console.log(`   🇧🇷 CRT - Licença brasileira: ${licenca} → Idoneidade: ${licencaComplementar}`);
+        } else {
+          // Para transportadoras estrangeiras, usar a idoneidade
+          if (!licenseForDestination.idoneidade) {
+            throw new Error('Transportadora estrangeira deve ter idoneidade configurada para emitir CRT');
+          }
+          licencaComplementar = licenseForDestination.idoneidade;
+          console.log(`   🌍 CRT - Transportadora estrangeira → Idoneidade: ${licencaComplementar}`);
+        }
       }
 
       // Gerar números sequenciais

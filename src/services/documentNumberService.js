@@ -63,19 +63,16 @@ class DocumentNumberService {
 
   static async getNextNumbers(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, quantidade) {
     try {
-      if (paisOrigemCodigo === paisDestinoCodigo) {
-        throw new Error('País de origem e destino não podem ser iguais na emissão de CRT/MIC-DTA.');
-      }
+      let licencaComp = licencaComplementar;
       const transportadora = await TransportadoraModel.findById(transportadoraId);
       if (!transportadora) {
         throw new Error('Transportadora não encontrada');
       }
-      // Busca licença entre país da transportadora e país de destino
+      // Sempre buscar a licença normalmente, independente do país de destino
       const licenseForDirection = await DestinationLicenseModel.findLicenseForCountries(transportadoraId, paisOrigemCodigo, paisDestinoCodigo);
       if (!licenseForDirection) {
         throw new Error(`Transportadora não possui licença que vincule os países ${paisOrigemCodigo} e ${paisDestinoCodigo}`);
       }
-      let licencaComp = licencaComplementar;
       if (transportadora.pais === 'BR') {
         const match = licenseForDirection.licenca.match(/^[A-Z]*?(\d{4})/);
         if (match) {
@@ -87,17 +84,14 @@ class DocumentNumberService {
 
       return new Promise((resolve, reject) => {
         database.getInstance().serialize(() => {
-          // Buscar última sequências GLOBAL por transportadora
+          // Buscar última sequência GLOBAL por transportadora e tipo
           const selectSql = `
             SELECT ultimoNumero FROM number_sequences 
-            WHERE tipo = ? AND transportadoraId = ? AND paisOrigemCodigo = ? AND paisDestinoCodigo = ? AND licencaComplementar = ?
+            WHERE tipo = ? AND transportadoraId = ?
           `;
           database.getInstance().get(selectSql, [
             tipo,
-            transportadoraId,
-            paisOrigemCodigo,
-            paisDestinoCodigo || '',
-            licencaComp || ''
+            transportadoraId
           ], (err, row) => {
             if (err) {
               reject(err);
@@ -117,6 +111,7 @@ class DocumentNumberService {
             for (let i = 0; i < quantidade; i++) {
               ultimoNumero++;
               const numeroFormatado = String(ultimoNumero).padStart(5, '0');
+              // Prefixo sempre do país de origem do documento
               const numeroCompleto = `${paisOrigemCodigo}${licencaComp}${numeroFormatado}`;
               numeros.push({
                 numero: numeroCompleto,
@@ -130,16 +125,13 @@ class DocumentNumberService {
             // Atualizar ou inserir a sequência com o último número gerado
             const upsertSql = `
               INSERT INTO number_sequences (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
-              VALUES (?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, '', '', '', ?)
               ON CONFLICT(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar)
               DO UPDATE SET ultimoNumero = ?
             `;
             database.getInstance().run(upsertSql, [
               tipo,
               transportadoraId,
-              paisOrigemCodigo,
-              paisDestinoCodigo || '',
-              licencaComp || '',
               ultimoNumero,
               ultimoNumero
             ], (err) => {
@@ -157,9 +149,9 @@ class DocumentNumberService {
     }
   }
 
-  static async getNextNumbersForLastre(transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade) {
+  static async getNextNumbersForLastre(transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade, licencaComplementar = null) {
     // Chama getNextNumbers com a mesma lógica
-    return this.getNextNumbers('MIC-DTA', transportadoraId, paisOrigemCodigo, paisDestinoCodigo, null, quantidade);
+    return this.getNextNumbers('MIC-DTA', transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, quantidade);
   }
 
   static validateCountryCode(countryCode) {

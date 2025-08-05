@@ -10,6 +10,7 @@ database.connect().catch(console.error);
 const transportadoraRoutes = require('./routes/transportadoraRoutes');
 const crtRoutes = require('./routes/crtRoutes');
 const micDtaRoutes = require('./routes/micDtaRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOp
 app.use('/api/transportadoras', transportadoraRoutes);
 app.use('/api/crt', crtRoutes);
 app.use('/api/mic-dta', micDtaRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Rota para países (configuração)
 app.get('/api/countries', (req, res) => {

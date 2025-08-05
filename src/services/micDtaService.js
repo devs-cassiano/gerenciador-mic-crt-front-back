@@ -109,12 +109,43 @@ class MicDtaService {
     console.log(`   - País Origem (viagem): ${paisOrigem}`);
     console.log(`   - País Destino: ${paisDestinoCodigo}`);
 
+    let licencaComplementar = null;
+    // Se o país de destino for igual ao país de origem da transportadora, ignora validação de licença
+    if (paisDestinoCodigo === transportadora.pais) {
+      licencaComplementar = null;
+      console.log('MIC/DTA LASTRE - País de destino igual ao país de origem da transportadora. Ignorando validação de licença.');
+    } else {
+      // Buscar a licença da transportadora para o destino específico
+      const destinationLicenses = await DestinationLicenseModel.findByTransportadora(transportadoraId);
+      const licenseForDestination = destinationLicenses.find(dl => dl.paisDestino === paisDestinoCodigo);
+      if (!licenseForDestination) {
+        return ApiResponse.error(
+          `Transportadora não possui licença configurada para destino ${paisDestinoCodigo}`,
+          400
+        );
+      }
+      if (transportadora.pais === 'BR') {
+        const licenca = licenseForDestination.licenca;
+        const match = licenca.match(/^[A-Z]*(\d{4})/);
+        if (!match) {
+          throw new Error(`Licença brasileira deve conter pelo menos 4 dígitos após as letras iniciais (ex: BR1234/56). Formato atual: ${licenca}`);
+        }
+        licencaComplementar = match[1];
+      } else {
+        if (!licenseForDestination.idoneidade) {
+          throw new Error('Transportadora estrangeira deve ter idoneidade configurada para emitir MIC/DTA');
+        }
+        licencaComplementar = licenseForDestination.idoneidade;
+      }
+    }
+
     // Usar o método específico para LASTRE (suporta brasileiras e estrangeiras)
     const numerosData = await DocumentNumberService.getNextNumbersForLastre(
       transportadoraId, 
       paisOrigem, 
       paisDestinoCodigo,
-      quantidade
+      quantidade,
+      licencaComplementar
     );
 
     const dataCriacao = DateUtils.getCurrentDate();
