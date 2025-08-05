@@ -2,47 +2,34 @@ const MicDtaService = require('../services/micDtaService');
 
 class MicDtaController {
   static async create(req, res) {
-    const { tipo = 'NORMAL', crtId, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade = 1 } = req.body;
-    
-    // Validações específicas por tipo
-    if (tipo === 'NORMAL') {
-      if (!crtId) {
+    try {
+      const { tipo } = req.body;
+      if (!tipo || !['NORMAL', 'LASTRE'].includes(tipo.toUpperCase())) {
         return res.status(400).json({
           success: false,
-          message: 'Para MIC/DTA NORMAL, CRT ID é obrigatório'
+          message: 'Tipo deve ser NORMAL ou LASTRE'
         });
       }
-    } else if (tipo === 'LASTRE') {
-      if (!transportadoraId || !paisDestinoCodigo) {
-        return res.status(400).json({
-          success: false,
-          message: 'Para MIC/DTA LASTRE, transportadoraId e paisDestinoCodigo são obrigatórios'
-        });
-      }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Tipo deve ser NORMAL ou LASTRE'
-      });
+      const result = await MicDtaService.create(req.body);
+      res.status(result.success ? 201 : (result.statusCode || 400)).json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, message: 'Erro ao criar MIC/DTA', error: error.message });
     }
+  }
+  static async getCrtsByMicDta(req, res) {
+    const { micDtaId } = req.params;
+    const result = await MicDtaService.getCrtsByMicDta(micDtaId);
+    res.status(result.success ? 200 : 500).json(result);
+  }
 
-    if (quantidade < 1 || quantidade > 100) {
-      return res.status(400).json({
-        success: false,
-        message: 'Quantidade deve ser entre 1 e 100'
-      });
+  static async addCrts(req, res) {
+    const { micDtaId } = req.params;
+    const { crtIds } = req.body;
+    if (!micDtaId || !Array.isArray(crtIds) || crtIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'micDtaId e crtIds (array) são obrigatórios' });
     }
-
-    const result = await MicDtaService.create({ 
-      tipo, 
-      crtId, 
-      transportadoraId, 
-      paisOrigemCodigo, 
-      paisDestinoCodigo, 
-      quantidade 
-    });
-    
-    res.status(result.success ? 201 : result.statusCode || 400).json(result);
+    const result = await MicDtaService.addCrtsToMicDta(Number(micDtaId), crtIds);
+    res.status(result.success ? 200 : result.statusCode || 400).json(result);
   }
 
   static async getAll(req, res) {

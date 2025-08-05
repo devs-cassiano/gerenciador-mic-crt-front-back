@@ -12,7 +12,7 @@ info:
     - Numeração sequencial automática
     
     ## Tipos de MIC/DTA
-    - **NORMAL**: Relacionado a um CRT, herda todas as informações
+    - **NORMAL**: Relacionado a um ou mais CRTs, herda todas as informações do primeiro CRT informado
     - **LASTRE**: Independente, para caminhões vazios (todas as transportadoras podem emitir)
     
   version: 1.0.0
@@ -22,14 +22,9 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-
 servers:
   - url: http://localhost:3000/api
     description: Servidor de desenvolvimento
-  # - url: http://54.242.200.179:3000/api
-  #   description: Servidor de produção
-  # - url: http://54.242.200.179:3000/api
-  #   description: Servidor de teste (IP público)
 
 tags:
   - name: Transportadoras
@@ -40,6 +35,177 @@ tags:
     description: Manifesto Internacional de Carga / Documento de Transporte Aduaneiro
   - name: Configurações
     description: Configurações do sistema
+components:
+  schemas:
+    NovoMicDtaNormal:
+      type: object
+      required:
+        - tipo
+        - crtIds
+        - transportadoraId
+        - paisOrigemCodigo
+        - paisDestinoCodigo
+      properties:
+        tipo:
+          type: string
+          enum: [NORMAL]
+          example: NORMAL
+        crtIds:
+          type: array
+          description: Lista de IDs de CRTs a serem vinculados ao novo MIC-DTA
+          items:
+            type: integer
+          example: [1,2,3]
+        transportadoraId:
+          type: integer
+          example: 1
+        paisOrigemCodigo:
+          type: string
+          example: "BR"
+        paisDestinoCodigo:
+          type: string
+          example: "PY"
+        licencaComplementar:
+          type: string
+          example: "6023"
+    NovoMicDtaLastre:
+      type: object
+      required:
+        - tipo
+        - transportadoraId
+        - paisOrigemCodigo
+        - paisDestinoCodigo
+        - quantidade
+      properties:
+        tipo:
+          type: string
+          enum: [LASTRE]
+          example: LASTRE
+        transportadoraId:
+          type: integer
+          example: 1
+        paisOrigemCodigo:
+          type: string
+          example: "BR"
+        paisDestinoCodigo:
+          type: string
+          example: "PY"
+        quantidade:
+          type: integer
+          example: 2
+
+    TransportadoraCompleta:
+      allOf:
+        - $ref: '#/components/schemas/NovaTransportadora'
+        - type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            createdAt:
+              type: string
+              format: date-time
+              example: "2025-07-11T12:24:49.000Z"
+            updatedAt:
+              type: string
+              format: date-time
+              example: "2025-07-11T12:24:49.000Z"
+
+    CRT:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        numero:
+          type: string
+          description: Número completo do CRT
+          example: "BR602300001"
+        paisOrigemCodigo:
+          type: string
+          example: "BR"
+        paisDestinoCodigo:
+          type: string
+          example: "PY"
+        licencaComplementar:
+          type: string
+          example: "6023"
+        numeroSequencial:
+          type: integer
+          example: 1
+        faturaComercial:
+          type: string
+          example: "FC-001"
+        exportador:
+          type: string
+          example: "Empresa XYZ"
+        importador:
+          type: string
+          example: "Empresa ABC"
+        dataCriacao:
+          type: string
+          description: Data de criação (formato DD/MM/YYYY)
+          example: "11/07/2025"
+        transportadoraId:
+          type: integer
+          example: 1
+        transportadoraNome:
+          type: string
+          example: "Transportes Brasil Ltda"
+        transportadoraPais:
+          type: string
+          example: "BR"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-07-11T12:24:49.000Z"
+
+  responses:
+    BadRequest:
+      description: Requisição inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Dados obrigatórios não informados"
+            statusCode: 400
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Recurso não encontrado"
+              statusCode:
+                type: integer
+                example: 404
+
+    InternalServerError:
+      description: Erro interno do servidor
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Erro interno do servidor"
+              statusCode:
+                type: integer
+                example: 500
+
 
 paths:
 # DASHBOARD - Licenças e validade
@@ -473,11 +639,14 @@ paths:
                 propertyName: tipo
             examples:
               normal:
-                summary: MIC/DTA NORMAL (relacionado a CRT)
+                summary: MIC/DTA NORMAL (vincula 1 ou mais CRTs existentes)
                 value:
                   tipo: "NORMAL"
-                  crtId: 1
-                  quantidade: 3
+                  crtIds: [1,2]
+                  transportadoraId: 1
+                  paisOrigemCodigo: "BR"
+                  paisDestinoCodigo: "PY"
+                  licencaComplementar: "6023"
               lastre:
                 summary: MIC/DTA LASTRE (caminhão vazio)
                 value:
@@ -706,379 +875,6 @@ paths:
                   - code: "AR"
                     name: "Argentina"
 
-components:
-  schemas:
-    LicencaComStatus:
-      type: object
-      properties:
-        id:
-          type: integer
-        transportadora:
-          type: object
-          properties:
-            id:
-              type: integer
-            nome:
-              type: string
-            pais:
-              type: string
-        paisDestino:
-          type: string
-        licenca:
-          type: string
-        idoneidade:
-          type: string
-        vencimentoLicenca:
-          type: string
-          description: Data no formato DD/MM/YYYY
-        status:
-          type: string
-          enum: [valid, expiringSoon, expired]
-        diasParaVencer:
-          type: integer
-  parameters:
-    TransportadoraId:
-      name: transportadoraId
-      in: path
-      required: true
-      schema:
-        type: integer
-      description: ID da transportadora
-
-
-    TransportadoraCompleta:
-      allOf:
-        - type: object
-          properties:
-            id:
-              type: integer
-              example: 1
-            createdAt:
-              type: string
-              format: date-time
-              example: "2025-07-11T12:24:49.000Z"
-            updatedAt:
-              type: string
-              format: date-time
-              example: "2025-07-11T12:24:49.000Z"
-        - $ref: '#/components/schemas/NovaTransportadora'
-
-    # CRT
-    NovoCRT:
-      type: object
-      required:
-        - transportadoraId
-        - faturaComercial
-        - exportador
-        - importador
-        - paisDestinoCodigo
-      properties:
-        transportadoraId:
-          type: integer
-          description: ID da transportadora
-          example: 1
-        quantidade:
-          type: integer
-          description: Quantidade de CRTs a criar
-          minimum: 1
-          maximum: 100
-          default: 1
-          example: 2
-        faturaComercial:
-          type: string
-          description: Número da fatura comercial
-          example: "FC-001"
-        exportador:
-          type: string
-          description: Nome do exportador
-          example: "Empresa XYZ"
-        importador:
-          type: string
-          description: Nome do importador
-          example: "Empresa ABC"
-        paisOrigemCodigo:
-          type: string
-          description: Código do país de origem
-          enum: [BR, PY, AR]
-          example: "BR"
-        paisDestinoCodigo:
-          type: string
-          description: Código do país de destino (obrigatório para definir licença)
-          enum: [BR, PY, AR]
-          example: "PY"
-
-    CRT:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        numero:
-          type: string
-          description: Número completo do CRT
-          example: "BR602300001"
-        paisOrigemCodigo:
-          type: string
-          example: "BR"
-        paisDestinoCodigo:
-          type: string
-          example: "PY"
-        licencaComplementar:
-          type: string
-          example: "6023"
-        numeroSequencial:
-          type: integer
-          example: 1
-        faturaComercial:
-          type: string
-          example: "FC-001"
-        exportador:
-          type: string
-          example: "Empresa XYZ"
-        importador:
-          type: string
-          example: "Empresa ABC"
-        dataCriacao:
-          type: string
-          description: Data de criação (formato DD/MM/YYYY)
-          example: "11/07/2025"
-        transportadoraId:
-          type: integer
-          example: 1
-        transportadoraNome:
-          type: string
-          example: "Transportes Brasil Ltda"
-        transportadoraPais:
-          type: string
-          example: "BR"
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-07-11T12:24:49.000Z"
-
-    # MIC/DTA
-    NovoMicDtaNormal:
-      type: object
-      required:
-        - tipo
-        - crtId
-      properties:
-        tipo:
-          type: string
-          enum: [NORMAL]
-          example: "NORMAL"
-        crtId:
-          type: integer
-          description: ID do CRT relacionado
-          example: 1
-        quantidade:
-          type: integer
-          description: Quantidade de MIC/DTAs a criar
-          minimum: 1
-          maximum: 100
-          default: 1
-          example: 3
-
-    NovoMicDtaLastre:
-      type: object
-      required:
-        - tipo
-        - transportadoraId
-        - paisDestinoCodigo
-      properties:
-        tipo:
-          type: string
-          enum: [LASTRE]
-          example: "LASTRE"
-        transportadoraId:
-          type: integer
-          description: ID da transportadora
-          example: 1
-        paisOrigemCodigo:
-          type: string
-          description: Código do país de origem (opcional, usa país da transportadora)
-          enum: [BR, PY, AR]
-          example: "BR"
-        paisDestinoCodigo:
-          type: string
-          description: Código do país de destino
-          enum: [BR, PY, AR]
-          example: "PY"
-        quantidade:
-          type: integer
-          description: Quantidade de MIC/DTAs a criar
-          minimum: 1
-          maximum: 100
-          default: 1
-          example: 2
-
-    MicDta:
-      type: object
-      properties:
-        id:
-          type: integer
-          example: 1
-        numero:
-          type: string
-          description: Número completo do MIC/DTA
-          example: "BR602300001"
-        tipo:
-          type: string
-          enum: [NORMAL, LASTRE]
-          example: "NORMAL"
-        paisOrigemCodigo:
-          type: string
-          example: "BR"
-        paisDestinoCodigo:
-          type: string
-          example: "PY"
-        licencaComplementar:
-          type: string
-          example: "6023"
-        numeroSequencial:
-          type: integer
-          example: 1
-        crtId:
-          type: integer
-          nullable: true
-          description: ID do CRT relacionado (null para LASTRE)
-          example: 1
-        transportadoraId:
-          type: integer
-          example: 1
-        dataCriacao:
-          type: string
-          description: Data de criação (formato DD/MM/YYYY)
-          example: "11/07/2025"
-        transportadoraNome:
-          type: string
-          example: "Transportes Brasil Ltda"
-        transportadoraPais:
-          type: string
-          example: "BR"
-        crtNumero:
-          type: string
-          nullable: true
-          description: Número do CRT relacionado (null para LASTRE)
-          example: "BR602300001"
-        crtFaturaComercial:
-          type: string
-          nullable: true
-          description: Fatura do CRT relacionado (null para LASTRE)
-          example: "FC-001"
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-07-11T12:24:49.000Z"
-
-    RespostaMicDtaNormal:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: object
-          properties:
-            micDtas:
-              type: array
-              items:
-                $ref: '#/components/schemas/MicDta'
-            tipo:
-              type: string
-              example: "NORMAL"
-            herdadoDoCrt:
-              type: object
-              properties:
-                numero:
-                  type: string
-                  example: "BR602300001"
-                paisOrigem:
-                  type: string
-                  example: "BR"
-                paisDestino:
-                  type: string
-                  example: "PY"
-                licenca:
-                  type: string
-                  example: "6023"
-        message:
-          type: string
-          example: "3 MIC/DTA(s) NORMAL criado(s) com sucesso, herdando dados do CRT BR602300001"
-
-    RespostaMicDtaLastre:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: object
-          properties:
-            micDtas:
-              type: array
-              items:
-                $ref: '#/components/schemas/MicDta'
-            tipo:
-              type: string
-              example: "LASTRE"
-            configuracao:
-              type: object
-              properties:
-                transportadora:
-                  type: string
-                  example: "Transportes Brasil Ltda"
-                paisOrigem:
-                  type: string
-                  example: "BR"
-                paisDestino:
-                  type: string
-                  example: "PY"
-                licenca:
-                  type: string
-                  example: "6023"
-                observacao:
-                  type: string
-                  example: "MIC/DTA LASTRE - Caminhão sem carga"
-        message:
-          type: string
-          example: "2 MIC/DTA(s) LASTRE criado(s) com sucesso para Transportes Brasil Ltda"
-
-    # OUTROS
-    Pais:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Código do país
-          example: "BR"
-        name:
-          type: string
-          description: Nome do país
-          example: "Brasil"
-
-    SuccessMessage:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        message:
-          type: string
-          example: "Operação realizada com sucesso"
-
-    ErrorResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: false
-        message:
-          type: string
-          example: "Erro na operação"
-        statusCode:
-          type: integer
-          example: 400
 
   responses:
     BadRequest:
@@ -1097,183 +893,120 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            success: false
-            message: "Recurso não encontrado"
-            statusCode: 404
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Recurso não encontrado"
+              statusCode:
+                type: integer
+                example: 404
 
     InternalServerError:
       description: Erro interno do servidor
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            success: false
-            message: "Erro interno do servidor"
-            statusCode: 500
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: "Erro interno do servidor"
+              statusCode:
+                type: integer
+                example: 500
 
-  /micdta:
-    post:
-      summary: Emissão de MIC/DTA
-      description: |
-        Emite um MIC/DTA NORMAL ou LASTRE.
-        
-        **Regra de Licença/Idoneidade e País de Registro (Brasileiras e Estrangeiras):**
-        - Se a transportadora possui licença/idoneidade cadastrada para um país, ou é registrada em um país, ela pode emitir documentos tanto do país de origem para o destino quanto do destino para o país de origem.
-        - Exemplo: Se existe licença para Brasil ↔ Paraguai, ou a transportadora é registrada no Brasil, pode emitir MIC/DTA NORMAL ou LASTRE nos dois sentidos, independente de ser transportadora brasileira ou estrangeira.
-        - O sistema busca a licença/idoneidade para o país de destino; se não encontrar, busca para o país de origem; se ainda não encontrar, considera o país de registro da transportadora.
-        - Isso vale para MIC/DTA NORMAL e LASTRE.
-        
-        **Campos obrigatórios:**
-        - Para NORMAL: crtId
-        - Para LASTRE: transportadoraId, paisOrigemCodigo, paisDestinoCodigo
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: '#/components/schemas/NovoMicDtaNormal'
-                - $ref: '#/components/schemas/NovoMicDtaLastre'
-              discriminator:
-                propertyName: tipo
-            examples:
-              normal:
-                summary: MIC/DTA NORMAL (relacionado a CRT)
-                value:
-                  tipo: "NORMAL"
-                  crtId: 1
-                  quantidade: 3
-              lastre:
-                summary: MIC/DTA LASTRE (caminhão vazio)
-                value:
-                  tipo: "LASTRE"
-                  transportadoraId: 1
-                  paisOrigemCodigo: "BR"
-                  paisDestinoCodigo: "PY"
-                  quantidade: 2
-              lastre_estrangeira:
-                summary: MIC/DTA LASTRE (transportadora estrangeira)
-                value:
-                  tipo: "LASTRE"
-                  transportadoraId: 2
-                  paisOrigemCodigo: "PY"
-                  paisDestinoCodigo: "BR"
-                  quantidade: 1
+
+  /mic-dta/{micDtaId}/crts:
+    get:
+      tags:
+        - MIC/DTA
+      summary: Listar CRTs vinculados a um MIC/DTA
+      description: Retorna todos os CRTs associados ao MIC/DTA informado.
+      parameters:
+        - name: micDtaId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID do MIC/DTA
       responses:
-        '201':
-          description: MIC/DTA criado com sucesso
+        '200':
+          description: Lista de CRTs vinculados ao MIC/DTA
           content:
             application/json:
-              examples:
-                exemploBrasileira:
-                  summary: MIC/DTA NORMAL/LASTRE Brasil ↔ Paraguai
-                  value:
-                    micDtas:
-                      - numero: BR602312345
-                        tipo: LASTRE
-                        paisOrigemCodigo: BR
-                        paisDestinoCodigo: PY
-                        licencaComplementar: 6023
-                        numeroSequencial: 12345
-                        transportadoraId: 1
-                        crtId: null
-                        dataCriacao: '2025-07-11'
-                    tipo: LASTRE
-                    configuracao:
-                      transportadora: Transporte Brasil LTDA
-                      paisOrigem: BR
-                      paisDestino: PY
-                      licenca: 6023
-                      observacao: MIC/DTA LASTRE - Caminhão sem carga
-                exemploEstrangeira:
-                  summary: MIC/DTA NORMAL/LASTRE Paraguai ↔ Brasil
-                  value:
-                    micDtas:
-                      - numero: PY567812346
-                        tipo: NORMAL
-                        paisOrigemCodigo: PY
-                        paisDestinoCodigo: BR
-                        licencaComplementar: 5678
-                        numeroSequencial: 12346
-                        transportadoraId: 2
-                        crtId: null
-                        dataCriacao: '2025-07-11'
-                    tipo: NORMAL
-                    configuracao:
-                      transportadora: Transporte PY SA
-                      paisOrigem: PY
-                      paisDestino: BR
-                      licenca: 5678
-                      observacao: MIC/DTA NORMAL - Caminhão com carga
-        '400':
-          $ref: '#/components/responses/BadRequest'
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CRT'
         '404':
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /crt:
-    post:
-      summary: Emissão de CRT
-      description: |
-        Emite um CRT (Conhecimento de Transporte).
-        
-        **Regra de País de Registro (Brasileiras e Estrangeiras):**
-        - O país de registro da transportadora pode ser usado como origem ou destino na emissão de CRT.
-        - Exemplo: Uma transportadora registrada na Argentina pode emitir CRT do Brasil para Argentina e da Argentina para o Brasil.
-        - O sistema busca licença/idoneidade para o país de destino; se não encontrar, busca para o país de origem; se ainda não encontrar, considera o país de registro da transportadora.
-        - Isso vale para CRT e MIC/DTA, NORMAL e LASTRE.
+    patch:
+      tags:
+        - MIC/DTA
+      summary: Associar CRTs a um MIC/DTA existente
+      description: Associa um ou mais CRTs a um MIC/DTA já criado.
+      parameters:
+        - name: micDtaId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID do MIC/DTA
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NovoCRT'
+              type: object
+              properties:
+                crtIds:
+                  type: array
+                  items:
+                    type: integer
+                  description: Lista de IDs dos CRTs a associar
             example:
-              transportadoraId: 1
-              quantidade: 2
-              faturaComercial: "FC-001"
-              exportador: "Empresa XYZ"
-              importador: "Empresa ABC"
-              paisOrigemCodigo: "BR"
-              paisDestinoCodigo: "PY"
+              crtIds: [1, 2, 3]
       responses:
-        '201':
-          description: CRT criado com sucesso
+        '200':
+          description: CRTs associados com sucesso
           content:
             application/json:
-              examples:
-                exemploEstrangeira:
-                  summary: CRT Brasil → Argentina
-                  value:
-                    crt:
-                      numero: BRAR00001
-                      paisOrigemCodigo: BR
-                      paisDestinoCodigo: AR
-                      licencaComplementar: ARIDON
-                      numeroSequencial: 1
-                      transportadoraId: 2
-                      dataCriacao: '2025-07-11'
-                      exportador: Empresa BR
-                      importador: Empresa AR
-                      faturaComercial: FC123
-                exemploEstrangeiraInversa:
-                  summary: CRT Argentina → Brasil
-                  value:
-                    crt:
-                      numero: ARBR00002
-                      paisOrigemCodigo: AR
-                      paisDestinoCodigo: BR
-                      licencaComplementar: ARIDON
-                      numeroSequencial: 2
-                      transportadoraId: 2
-                      dataCriacao: '2025-07-11'
-                      exportador: Empresa AR
-                      importador: Empresa BR
-                      faturaComercial: FC124
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: CRTs associados ao MIC/DTA com sucesso
+                  data:
+                    type: object
+                    properties:
+                      micDtaId:
+                        type: integer
+                        example: 1
+                      crtIds:
+                        type: array
+                        items:
+                          type: integer
+                        example: [1, 2, 3]
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':

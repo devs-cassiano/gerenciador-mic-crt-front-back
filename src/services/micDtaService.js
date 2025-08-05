@@ -1,3 +1,4 @@
+// ...existing code...
 const MicDtaModel = require('../models/micDtaModel');
 const CrtModel = require('../models/crtModel');
 const DestinationLicenseModel = require('../models/destinationLicenseModel');
@@ -7,179 +8,85 @@ const DateUtils = require('../utils/dateUtils');
 const ApiResponse = require('../utils/response');
 
 class MicDtaService {
-  static async create(micDtaData) {
+  static async create(data) {
     try {
-      const { tipo = 'NORMAL', crtId, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade = 1 } = micDtaData;
-
-      console.log(`📋 Criando MIC/DTA tipo: ${tipo}`);
-
+      const { tipo } = data;
       if (tipo === 'NORMAL') {
-        return await this.createNormal({ crtId, quantidade });
+        const { crtIds, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, quantidade } = data;
+        if (!Array.isArray(crtIds) || crtIds.length === 0) {
+          return ApiResponse.error('crtIds é obrigatório para MIC-DTA NORMAL', 400);
+        }
+        // Gerar número do MIC-DTA
+        const numeros = await DocumentNumberService.getNextNumbers(
+          'MIC-DTA',
+          transportadoraId,
+          paisOrigemCodigo,
+          paisDestinoCodigo,
+          licencaComplementar,
+          1
+        );
+        const numeroObj = (numeros && numeros[0]) ? numeros[0] : null;
+        if (!numeroObj || !numeroObj.numero || !numeroObj.numeroSequencial) {
+          return ApiResponse.error('Falha ao gerar número do MIC-DTA', 500);
+        }
+        // Cria o MIC-DTA principal
+        const dataCriacao = data.dataCriacao || new Date().toISOString().slice(0, 10);
+        const micDta = await MicDtaModel.create({ ...data, numero: numeroObj.numero, numeroSequencial: numeroObj.numeroSequencial, dataCriacao });
+        // Associa todos os CRTs recebidos
+        for (const crtId of crtIds) {
+          await MicDtaModel.linkToCrt(micDta.id, crtId);
+        }
+        return ApiResponse.success({ ...micDta, crtIds }, 'MIC-DTA NORMAL criado e CRTs vinculados com sucesso');
       } else if (tipo === 'LASTRE') {
-        return await this.createLastre({ transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade });
+        // Gerar número do MIC-DTA LASTRE
+        const { transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, quantidade } = data;
+        const numeros = await DocumentNumberService.getNextNumbers(
+          'MIC-DTA',
+          transportadoraId,
+          paisOrigemCodigo,
+          paisDestinoCodigo,
+          licencaComplementar,
+          1
+        );
+        const numeroObj = (numeros && numeros[0]) ? numeros[0] : null;
+        if (!numeroObj || !numeroObj.numero || !numeroObj.numeroSequencial) {
+          return ApiResponse.error('Falha ao gerar número do MIC-DTA', 500);
+        }
+        // Criação de MIC-DTA LASTRE
+        const dataCriacao = data.dataCriacao || new Date().toISOString().slice(0, 10);
+        const micDta = await MicDtaModel.create({ ...data, numero: numeroObj.numero, numeroSequencial: numeroObj.numeroSequencial, dataCriacao });
+        return ApiResponse.success(micDta, 'MIC-DTA LASTRE criado com sucesso');
       } else {
-        return ApiResponse.error('Tipo de MIC/DTA inválido. Use NORMAL ou LASTRE', 400);
+        return ApiResponse.error('Tipo inválido', 400);
       }
     } catch (error) {
-      return ApiResponse.error('Erro ao criar MIC/DTA: ' + error.message, 500);
+      return ApiResponse.error('Erro ao criar MIC-DTA: ' + error.message, 500);
     }
   }
 
-  static async createNormal({ crtId, quantidade }) {
-    // Verificar se o CRT existe e buscar suas informações
-    const crt = await CrtModel.findById(crtId);
-    if (!crt) {
-      return ApiResponse.error('CRT não encontrado', 404);
+  static async getCrtsByMicDta(micDtaId) {
+    try {
+      const crts = await MicDtaModel.getCrtsByMicDta(micDtaId);
+      return ApiResponse.success(crts);
+    } catch (error) {
+      return ApiResponse.error('Erro ao buscar CRTs vinculados ao MIC/DTA: ' + error.message, 500);
     }
-
-    // Herdar TODAS as informações do CRT automaticamente
-    const paisOrigemCodigo = crt.paisOrigemCodigo;
-    const paisDestinoCodigo = crt.paisDestinoCodigo;
-    const licencaComplementar = crt.licencaComplementar;
-    const transportadoraId = crt.transportadoraId;
-
-    console.log(`   📋 NORMAL - Herdando do CRT ${crt.numero}:`);
-    console.log(`   - País Origem: ${paisOrigemCodigo}`);
-    console.log(`   - País Destino: ${paisDestinoCodigo}`);
-    console.log(`   - Licença: ${licencaComplementar}`);
-
-    // Gerar números sequenciais usando as informações herdadas do CRT
-    const numerosData = await DocumentNumberService.getNextNumbers(
-      'MIC-DTA', 
-      transportadoraId, 
-      paisOrigemCodigo, 
-      paisDestinoCodigo,
-      licencaComplementar,
-      quantidade
-    );
-
-    const dataCriacao = DateUtils.getCurrentDate();
-    const micDtasCreated = [];
-    
-    // Criar MIC/DTAs NORMAL com informações herdadas
-    for (const numeroData of numerosData) {
-      const micDta = await MicDtaModel.create({
-        numero: numeroData.numero,
-        tipo: 'NORMAL',
-        paisOrigemCodigo: numeroData.paisOrigemCodigo,
-        paisDestinoCodigo: numeroData.paisDestinoCodigo,
-        licencaComplementar: numeroData.licencaComplementar,
-        numeroSequencial: numeroData.numeroSequencial,
-        crtId,
-        transportadoraId,
-        dataCriacao
-      });
-      micDtasCreated.push(micDta);
-    }
-
-    return ApiResponse.success({
-      micDtas: micDtasCreated,
-      tipo: 'NORMAL',
-      herdadoDoCrt: {
-        numero: crt.numero,
-        paisOrigem: paisOrigemCodigo,
-        paisDestino: paisDestinoCodigo,
-        licenca: licencaComplementar
-      }
-    }, `${quantidade} MIC/DTA(s) NORMAL criado(s) com sucesso, herdando dados do CRT ${crt.numero}`);
   }
 
-  static async createLastre({ transportadoraId, paisOrigemCodigo, paisDestinoCodigo, quantidade }) {
-    // Verificar se a transportadora existe
-    const transportadora = await TransportadoraModel.findById(transportadoraId);
-    if (!transportadora) {
-      return ApiResponse.error('Transportadora não encontrada', 404);
-    }
-
-    // Para LASTRE, o país de origem pode ser diferente do país da transportadora
-    // Exemplo: transportadora emitindo LASTRE vindo de outro país
-    const paisOrigem = paisOrigemCodigo || transportadora.pais;
-
-    // Validar países
-    if (!DocumentNumberService.validateCountryCode(paisOrigem)) {
-      return ApiResponse.error('Código de país de origem inválido', 400);
-    }
-
-    if (!DocumentNumberService.validateCountryCode(paisDestinoCodigo)) {
-      return ApiResponse.error('Código de país de destino inválido', 400);
-    }
-
-    console.log(`   🚛 LASTRE - Configuração:`);
-    console.log(`   - Transportadora: ${transportadora.nome} (${transportadora.pais})`);
-    console.log(`   - País Origem (viagem): ${paisOrigem}`);
-    console.log(`   - País Destino: ${paisDestinoCodigo}`);
-
-    let licencaComplementar = null;
-    // Se o país de destino for igual ao país de origem da transportadora, ignora validação de licença
-    if (paisDestinoCodigo === transportadora.pais) {
-      licencaComplementar = null;
-      console.log('MIC/DTA LASTRE - País de destino igual ao país de origem da transportadora. Ignorando validação de licença.');
-    } else {
-      // Buscar a licença da transportadora para o destino específico
-      const destinationLicenses = await DestinationLicenseModel.findByTransportadora(transportadoraId);
-      const licenseForDestination = destinationLicenses.find(dl => dl.paisDestino === paisDestinoCodigo);
-      if (!licenseForDestination) {
-        return ApiResponse.error(
-          `Transportadora não possui licença configurada para destino ${paisDestinoCodigo}`,
-          400
-        );
+  static async addCrtsToMicDta(micDtaId, crtIds) {
+    try {
+      if (!Array.isArray(crtIds) || crtIds.length === 0) {
+        return ApiResponse.error('Informe um array de crtIds', 400);
       }
-      if (transportadora.pais === 'BR') {
-        const licenca = licenseForDestination.licenca;
-        const match = licenca.match(/^[A-Z]*(\d{4})/);
-        if (!match) {
-          throw new Error(`Licença brasileira deve conter pelo menos 4 dígitos após as letras iniciais (ex: BR1234/56). Formato atual: ${licenca}`);
-        }
-        licencaComplementar = match[1];
-      } else {
-        if (!licenseForDestination.idoneidade) {
-          throw new Error('Transportadora estrangeira deve ter idoneidade configurada para emitir MIC/DTA');
-        }
-        licencaComplementar = licenseForDestination.idoneidade;
+      for (const crtId of crtIds) {
+        await MicDtaModel.linkToCrt(micDtaId, crtId);
       }
+      return ApiResponse.success({ micDtaId, crtIds }, 'CRTs associados ao MIC/DTA com sucesso');
+    } catch (error) {
+      return ApiResponse.error('Erro ao associar CRTs ao MIC/DTA: ' + error.message, 500);
     }
-
-    // Usar o método específico para LASTRE (suporta brasileiras e estrangeiras)
-    const numerosData = await DocumentNumberService.getNextNumbersForLastre(
-      transportadoraId, 
-      paisOrigem, 
-      paisDestinoCodigo,
-      quantidade,
-      licencaComplementar
-    );
-
-    const dataCriacao = DateUtils.getCurrentDate();
-    const micDtasCreated = [];
-    
-    // Criar MIC/DTAs LASTRE sem CRT
-    for (const numeroData of numerosData) {
-      const micDta = await MicDtaModel.create({
-        numero: numeroData.numero,
-        tipo: 'LASTRE',
-        paisOrigemCodigo: numeroData.paisOrigemCodigo,
-        paisDestinoCodigo: numeroData.paisDestinoCodigo,
-        licencaComplementar: numeroData.licencaComplementar,
-        numeroSequencial: numeroData.numeroSequencial,
-        crtId: null, // LASTRE não tem CRT
-        transportadoraId,
-        dataCriacao
-      });
-      micDtasCreated.push(micDta);
-    }
-
-    return ApiResponse.success({
-      micDtas: micDtasCreated,
-      tipo: 'LASTRE',
-      configuracao: {
-        transportadora: transportadora.nome,
-        paisOrigem: paisOrigem,
-        paisDestino: paisDestinoCodigo,
-        licenca: licencaComplementar,
-        observacao: 'MIC/DTA LASTRE - Caminhão sem carga'
-      }
-    }, `${quantidade} MIC/DTA(s) LASTRE criado(s) com sucesso para ${transportadora.nome}`);
   }
-
+  // ...existing code...
   static async getAll() {
     try {
       const micDtas = await MicDtaModel.findAll();

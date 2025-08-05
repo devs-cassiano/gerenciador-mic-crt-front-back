@@ -16,8 +16,7 @@ class Database {
             reject(err);
           } else {
             console.log('Conectado ao banco SQLite');
-            this.createTables();
-            resolve();
+            this.createTables().then(resolve).catch(reject);
           }
         }
       );
@@ -25,99 +24,99 @@ class Database {
   }
 
   createTables() {
-    const transportadoraTable = `
-      CREATE TABLE IF NOT EXISTS transportadoras (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        pais TEXT NOT NULL,
-        numeroRegistro TEXT UNIQUE NOT NULL,
-        numeroInicialCRT INTEGER DEFAULT 1,
-        numeroInicialMicDta INTEGER DEFAULT 1,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    const destinationLicensesTable = `
-      CREATE TABLE IF NOT EXISTS destination_licenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        transportadoraId INTEGER NOT NULL,
-        paisDestino TEXT NOT NULL,
-        licenca TEXT NOT NULL,
-        idoneidade TEXT,
-        vencimentoLicenca TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(transportadoraId, paisDestino),
-        FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id) ON DELETE CASCADE
-      )
-    `;
-
-    const crtTable = `
-      CREATE TABLE IF NOT EXISTS crt (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero TEXT UNIQUE NOT NULL,
-        paisOrigemCodigo TEXT NOT NULL,
-        paisDestinoCodigo TEXT NOT NULL,
-        licencaComplementar TEXT NOT NULL,
-        numeroSequencial INTEGER NOT NULL,
-        faturaComercial TEXT NOT NULL,
-        exportador TEXT NOT NULL,
-        importador TEXT NOT NULL,
-        dataCriacao TEXT NOT NULL,
-        transportadoraId INTEGER NOT NULL,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id)
-      )
-    `;
-
-    // Tabela MIC/DTA atualizada com tipo e crtId opcional
-    const micDtaTable = `
-      CREATE TABLE IF NOT EXISTS mic_dta (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        numero TEXT UNIQUE NOT NULL,
-        tipo TEXT NOT NULL DEFAULT 'NORMAL',
-        paisOrigemCodigo TEXT NOT NULL,
-        paisDestinoCodigo TEXT NOT NULL,
-        licencaComplementar TEXT NOT NULL,
-        numeroSequencial INTEGER NOT NULL,
-        crtId INTEGER NULL,
-        transportadoraId INTEGER NOT NULL,
-        dataCriacao TEXT NOT NULL,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (crtId) REFERENCES crt (id),
-        FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id),
-        CHECK (tipo IN ('NORMAL', 'LASTRE')),
-        CHECK (
-          (tipo = 'NORMAL' AND crtId IS NOT NULL) OR 
-          (tipo = 'LASTRE' AND crtId IS NULL)
+    return new Promise((resolve, reject) => {
+      const transportadoraTable = `
+        CREATE TABLE IF NOT EXISTS transportadoras (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nome TEXT NOT NULL,
+          pais TEXT NOT NULL,
+          numeroRegistro TEXT UNIQUE NOT NULL,
+          numeroInicialCRT INTEGER DEFAULT 1,
+          numeroInicialMicDta INTEGER DEFAULT 1,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+      `;
+
+      const destinationLicensesTable = `
+        CREATE TABLE IF NOT EXISTS destination_licenses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          transportadoraId INTEGER NOT NULL,
+          paisDestino TEXT NOT NULL,
+          licenca TEXT NOT NULL,
+          idoneidade TEXT,
+          vencimentoLicenca TEXT,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(transportadoraId, paisDestino),
+          FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id) ON DELETE CASCADE
+        )
+      `;
+
+      const crtTable = `
+        CREATE TABLE IF NOT EXISTS crt (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero TEXT UNIQUE NOT NULL,
+          paisOrigemCodigo TEXT NOT NULL,
+          paisDestinoCodigo TEXT NOT NULL,
+          licencaComplementar TEXT NOT NULL,
+          numeroSequencial INTEGER NOT NULL,
+          faturaComercial TEXT NOT NULL,
+          exportador TEXT NOT NULL,
+          importador TEXT NOT NULL,
+          dataCriacao TEXT NOT NULL,
+          transportadoraId INTEGER NOT NULL,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id)
+        )
+      `;
+
+      // Tabela MIC/DTA atualizada (sem campo crtId, relação via tabela de junção)
+      const micDtaTable = `
+        CREATE TABLE IF NOT EXISTS mic_dta (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          numero TEXT UNIQUE NOT NULL,
+          tipo TEXT NOT NULL DEFAULT 'NORMAL',
+          paisOrigemCodigo TEXT NOT NULL,
+          paisDestinoCodigo TEXT NOT NULL,
+          licencaComplementar TEXT NOT NULL,
+          numeroSequencial INTEGER NOT NULL,
+          transportadoraId INTEGER NOT NULL,
+          dataCriacao TEXT NOT NULL,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id),
+        CHECK (tipo IN ('NORMAL', 'LASTRE'))
       )
     `;
 
-    const numberSequenceTable = `
-      CREATE TABLE IF NOT EXISTS number_sequences (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tipo TEXT NOT NULL,
-        transportadoraId INTEGER NOT NULL,
-        ultimoNumero INTEGER DEFAULT 0,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(tipo, transportadoraId),
-        FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id)
-      )
-    `;
+      // Relação muitos-para-muitos MIC/DTA <-> CRT
+      const micdtaCrtTable = "CREATE TABLE IF NOT EXISTS micdta_crt (micDtaId INTEGER NOT NULL, crtId INTEGER NOT NULL, PRIMARY KEY (micDtaId, crtId), FOREIGN KEY (micDtaId) REFERENCES mic_dta(id) ON DELETE CASCADE, FOREIGN KEY (crtId) REFERENCES crt(id) ON DELETE CASCADE);";
 
-    // Executar criação das tabelas
-    this.db.serialize(() => {
-      this.db.run(transportadoraTable);
-      this.db.run(destinationLicensesTable);
-      this.db.run(crtTable);
-      this.db.run(micDtaTable);
-      this.db.run(numberSequenceTable, () => {
-        // Executar migrações somente após todas as tabelas serem criadas
-        console.log('Tabelas criadas, executando migrações...');
-        this.runMigrations();
-        this.runDestinationLicensesMigrations();
+      const numberSequenceTable = `
+        CREATE TABLE IF NOT EXISTS number_sequences (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          tipo TEXT NOT NULL,
+          transportadoraId INTEGER NOT NULL,
+          ultimoNumero INTEGER DEFAULT 0,
+          createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(tipo, transportadoraId),
+          FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id)
+        )
+      `;
+
+      // Executar criação das tabelas em sequência e aguardar migrações
+      this.db.serialize(() => {
+        this.db.run(transportadoraTable);
+        this.db.run(destinationLicensesTable);
+        this.db.run(crtTable);
+        this.db.run(micDtaTable);
+        this.db.run(micdtaCrtTable);
+        this.db.run(numberSequenceTable, async () => {
+          // Executar migrações somente após todas as tabelas serem criadas
+          console.log('Tabelas criadas, executando migrações...');
+          await new Promise(res => { this.runMigrations(); this.runDestinationLicensesMigrations(); setTimeout(res, 500); });
+          resolve();
+        });
       });
     });
   }
@@ -176,91 +175,12 @@ class Database {
           });
         }
 
-        // Verificar se crtId pode ser NULL
-        const crtIdColumn = columns.find(col => col.name === 'crtId');
-        if (crtIdColumn && crtIdColumn.notnull === 1) {
-          console.log('Executando migração: permitindo crtId NULL para tipo LASTRE');
-          // Para SQLite, precisamos recriar a tabela para alterar constraint
-          this.recreateMicDtaTable();
-        }
+        // (Removido: migração de crtId, pois relação agora é via tabela de junção)
       });
     });
   }
 
-  recreateMicDtaTable() {
-    console.log('Recreando tabela mic_dta com estrutura atualizada...');
-    
-    // Backup dos dados
-    this.db.run(`CREATE TABLE mic_dta_backup AS SELECT * FROM mic_dta`, (err) => {
-      if (err) {
-        console.error('Erro ao fazer backup da tabela mic_dta:', err.message);
-        return;
-      }
-
-      // Dropar tabela original
-      this.db.run(`DROP TABLE mic_dta`, (err) => {
-        if (err) {
-          console.error('Erro ao dropar tabela mic_dta:', err.message);
-          return;
-        }
-
-        // Recriar com estrutura correta
-        const newMicDtaTable = `
-          CREATE TABLE mic_dta (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            numero TEXT UNIQUE NOT NULL,
-            tipo TEXT NOT NULL DEFAULT 'NORMAL',
-            paisOrigemCodigo TEXT NOT NULL,
-            paisDestinoCodigo TEXT NOT NULL,
-            licencaComplementar TEXT NOT NULL,
-            numeroSequencial INTEGER NOT NULL,
-            crtId INTEGER NULL,
-            transportadoraId INTEGER NOT NULL,
-            dataCriacao TEXT NOT NULL,
-            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (crtId) REFERENCES crt (id),
-            FOREIGN KEY (transportadoraId) REFERENCES transportadoras (id),
-            CHECK (tipo IN ('NORMAL', 'LASTRE')),
-            CHECK (
-              (tipo = 'NORMAL' AND crtId IS NOT NULL) OR 
-              (tipo = 'LASTRE' AND crtId IS NULL)
-            )
-          )
-        `;
-
-        this.db.run(newMicDtaTable, (err) => {
-          if (err) {
-            console.error('Erro ao recriar tabela mic_dta:', err.message);
-            return;
-          }
-
-          // Restaurar dados
-          this.db.run(`
-            INSERT INTO mic_dta (id, numero, tipo, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, numeroSequencial, crtId, transportadoraId, dataCriacao, createdAt)
-            SELECT id, numero, 
-                   COALESCE(tipo, 'NORMAL') as tipo,
-                   paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, numeroSequencial, crtId, transportadoraId,
-                   COALESCE(dataCriacao, date('now')) as dataCriacao,
-                   createdAt
-            FROM mic_dta_backup
-          `, (err) => {
-            if (err) {
-              console.error('Erro ao restaurar dados da tabela mic_dta:', err.message);
-            } else {
-              console.log('Migração da tabela mic_dta concluída com sucesso');
-              
-              // Limpar backup
-              this.db.run(`DROP TABLE mic_dta_backup`, (err) => {
-                if (err) {
-                  console.log('Aviso: Não foi possível remover backup da tabela mic_dta');
-                }
-              });
-            }
-          });
-        });
-      });
-    });
-  }
+  // (Removido: método recreateMicDtaTable, pois não há mais campo crtId na tabela mic_dta)
 
   getInstance() {
     return this.db;
@@ -327,4 +247,16 @@ class Database {
   }
 }
 
+
 module.exports = new Database();
+
+// Permite rodar a criação das tabelas ao executar o script diretamente
+if (require.main === module) {
+  const dbInstance = new Database();
+  dbInstance.connect().then(() => {
+    console.log('Banco de dados inicializado com sucesso.');
+    dbInstance.close();
+  }).catch((err) => {
+    console.error('Erro ao inicializar banco de dados:', err);
+  });
+}

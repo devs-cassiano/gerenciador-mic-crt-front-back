@@ -124,9 +124,9 @@ class DocumentNumberService {
 
             // Atualizar ou inserir a sequência com o último número gerado
             const upsertSql = `
-              INSERT INTO number_sequences (tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar, ultimoNumero)
-              VALUES (?, ?, '', '', '', ?)
-              ON CONFLICT(tipo, transportadoraId, paisOrigemCodigo, paisDestinoCodigo, licencaComplementar)
+              INSERT INTO number_sequences (tipo, transportadoraId, ultimoNumero)
+              VALUES (?, ?, ?)
+              ON CONFLICT(tipo, transportadoraId)
               DO UPDATE SET ultimoNumero = ?
             `;
             database.getInstance().run(upsertSql, [
